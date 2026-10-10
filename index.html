@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Лид-CRM</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1c2230;--mut:#6b7280;--bd:#e3e6ec;--ac:#3b6cf6;--ok:#16a34a;--bad:#dc2626;--warn:#d97706}
+@media (prefers-color-scheme:dark){:root{--bg:#12151c;--card:#1b1f2a;--tx:#e8ebf2;--mut:#9aa3b5;--bd:#2b3140;--ac:#6b93ff}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5}
+header h1{font-size:16px;margin:0 12px 0 0}
+nav{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+nav button{background:none;border:0;padding:7px 12px;border-radius:8px;color:var(--mut);cursor:pointer;font:inherit}
+nav button.on{background:var(--ac);color:#fff}
+main{padding:16px;max-width:1200px;margin:auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.kpi .v{font-size:22px;font-weight:600}.kpi .l{color:var(--mut);font-size:12px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);vertical-align:top}
+th{color:var(--mut);font-weight:500;font-size:12px}
+.tw{overflow-x:auto}
+input,select,textarea,button{font:inherit;color:var(--tx)}
+input,select,textarea{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:7px 9px;width:100%}
+textarea{min-height:70px;resize:vertical}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:7px 14px;cursor:pointer}
+.btn.g{background:none;color:var(--tx);border:1px solid var(--bd)}
+.btn.r{background:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.row>*{flex:1;min-width:130px}.row>.btn{flex:0 0 auto}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:var(--bd)}
+.bar{height:10px;background:var(--ac);border-radius:5px}
+.modal{position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;padding:12px;z-index:10}
+.modal>div{background:var(--card);border-radius:12px;padding:18px;max-width:560px;width:100%;max-height:90vh;overflow:auto}
+.f{display:grid;gap:10px;grid-template-columns:1fr 1fr}.f .w{grid-column:1/-1}
+label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
+.mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}
+@media(max-width:560px){.f{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>📇 Лид-CRM</h1>
+  <nav id="nav"></nav>
+  <button class="btn g" onclick="exp()">Экспорт</button>
+  <button class="btn g" onclick="document.getElementById('imp').click()">Импорт</button>
+  <input type="file" id="imp" accept=".json" hidden>
+</header>
+<main id="app"></main>
+<div id="m"></div>
+
+<script>
+const KEY='leadcrm.v1';
+const STAGES=['Новый','В работе','Заявка','Одобрено','Выплачено','Отказ'];
+const TABS=[['dash','Дашборд'],['leads','Лиды'],['partners','Партнёры'],['sources','Источники'],['tpl','Скрипты']];
+let S=load(),tab='dash',F={q:'',st:'',src:'',ptn:''};
+
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.leads)return d}catch(e){}
+  return{leads:[],partners:[],sources:[],tpl:[{id:uid(),name:'Первое сообщение',text:'Здравствуйте, {имя}! Подскажите, актуален ли для вас вопрос по {продукт}?'}]};
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){alert('Не удалось сохранить (хранилище браузера недоступно)')}}
+function uid(){return Math.random().toString(36).slice(2,10)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+const by=(arr,id)=>arr.find(x=>x.id===id);
+const rub=n=>(Math.round(n)||0).toLocaleString('ru-RU')+' ₽';
+const today=()=>new Date().toISOString().slice(0,10);
+
+function nav(){
+  document.getElementById('nav').innerHTML=TABS.map(([k,n])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
+}
+function go(t){tab=t;render()}
+function render(){nav();document.getElementById('app').innerHTML=({dash,leads,partners,sources,tpl})[tab]()}
+
+/* ---------- расчёты ---------- */
+function payoutOf(l){const p=by(S.partners,l.partner);return l.stage==='Выплачено'?(+l.payout||+(p&&p.rate)||0):0}
+function pending(l){const p=by(S.partners,l.partner);return l.stage==='Одобрено'?(+l.payout||+(p&&p.rate)||0):0}
+
+/* ---------- дашборд ---------- */
+function dash(){
+  const L=S.leads,inc=L.reduce((a,l)=>a+payoutOf(l),0),pen=L.reduce((a,l)=>a+pending(l),0);
+  const cost=S.sources.reduce((a,s)=>a+(+s.spend||0),0);
+  const cnt=st=>L.filter(l=>l.stage===st).length,max=Math.max(1,...STAGES.map(cnt));
+  return `<div class="grid">
+    ${kpi('Лидов',L.length)}${kpi('Выплачено',rub(inc))}${kpi('Ожидает выплаты',rub(pen))}
+    ${kpi('Расходы',rub(cost))}${kpi('Прибыль',`<span class="${inc-cost>=0?'ok':'bad'}">${rub(inc-cost)}</span>`)}
+    ${kpi('ROI',cost?Math.round((inc-cost)/cost*100)+'%':'—')}</div>
+  <div class="card" style="margin-top:14px"><b>Воронка</b>${STAGES.map(s=>`
+    <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="width:90px">${s}</span>
+    <div style="flex:1"><div class="bar" style="width:${cnt(s)/max*100}%;min-width:3px"></div></div><b>${cnt(s)}</b></div>`).join('')}</div>
+  <div class="card"><b>Данные хранятся только в этом браузере.</b>
+    <div class="mut">Делайте «Экспорт» время от времени — это ваш бэкап. Через «Импорт» можно перенести данные на другое устройство.</div></div>`;
+}
+const kpi=(l,v)=>`<div class="card kpi" style="margin:0"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+
+/* ---------- лиды ---------- */
+function leads(){
+  const q=F.q.toLowerCase();
+  const L=S.leads.filter(l=>(!F.st||l.stage===F.st)&&(!F.src||l.source===F.src)&&(!F.ptn||l.partner===F.ptn)&&
+    (!q||[l.name,l.phone,l.tg,l.note].join(' ').toLowerCase().includes(q)));
+  const opt=(arr,v)=>arr.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${esc(x.name)}</option>`).join('');
+  return `<div class="card"><div class="row">
+    <input placeholder="Поиск: имя, телефон, @tg, заметка" value="${esc(F.q)}" oninput="F.q=this.value;keep(this)">
+    <select onchange="F.st=this.value;render()"><option value="">Все статусы</option>${STAGES.map(s=>`<option ${F.st===s?'selected':''}>${s}</option>`).join('')}</select>
+    <select onchange="F.src=this.value;render()"><option value="">Все источники</option>${opt(S.sources,F.src)}</select>
+    <select onchange="F.ptn=this.value;render()"><option value="">Все партнёры</option>${opt(S.partners,F.ptn)}</select>
+    <button class="btn" onclick="editLead()">+ Лид</button></div>
+    <div class="tw"><table><tr><th>Дата</th><th>Контакт</th><th>Источник</th><th>Партнёр</th><th>Статус</th><th>Выплата</th><th></th></tr>
+    ${L.map(l=>{const s=by(S.sources,l.source),p=by(S.partners,l.partner);return `<tr>
+      <td>${esc(l.date)}</td><td><b>${esc(l.name)}</b><br><span class="mut">${esc(l.phone)} ${esc(l.tg)}</span>${l.note?`<br><span class="mut">${esc(l.note)}</span>`:''}</td>
+      <td>${esc(s?s.name:'—')}</td><td>${esc(p?p.name:'—')}</td>
+      <td><select onchange="setStage('${l.id}',this.value)">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td>${rub(payoutOf(l)||pending(l))}</td>
+      <td style="white-space:nowrap"><button class="btn g" onclick="editLead('${l.id}')">✎</button> <button class="btn g" onclick="del('leads','${l.id}')">🗑</button></td></tr>`}).join('')||'<tr><td colspan="7" class="mut">Пока пусто. Добавьте первого лида.</td></tr>'}
+    </table></div></div>`;
+}
+function keep(el){const p=el.selectionStart;render();const n=document.querySelector('main input');if(n){n.focus();n.setSelectionRange(p,p)}}
+function setStage(id,v){by(S.leads,id).stage=v;save();render()}
+function editLead(id){
+  const l=id?by(S.leads,id):{name:'',phone:'',tg:'',source:'',partner:'',stage:'Новый',payout:'',note:'',date:today()};
+  const opt=(arr,v)=>`<option value="">—</option>`+arr.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${esc(x.name)}</option>`).join('');
+  modal(id?'Лид':'Новый лид',`<div class="f">
+   <div><label>Имя</label><input id="a_name" value="${esc(l.name)}"></div>
+   <div><label>Дата</label><input id="a_date" type="date" value="${esc(l.date)}"></div>
+   <div><label>Телефон</label><input id="a_phone" value="${esc(l.phone)}"></div>
+   <div><label>Telegram</label><input id="a_tg" value="${esc(l.tg)}"></div>
+   <div><label>Источник</label><select id="a_source">${opt(S.sources,l.source)}</select></div>
+   <div><label>Партнёр</label><select id="a_partner">${opt(S.partners,l.partner)}</select></div>
+   <div><label>Статус</label><select id="a_stage">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></div>
+   <div><label>Выплата (пусто = ставка партнёра)</label><input id="a_payout" type="number" value="${esc(l.payout)}"></div>
+   <div class="w"><label>Заметка</label><textarea id="a_note">${esc(l.note)}</textarea></div></div>`,
+   ()=>{const o=pick(['name','date','phone','tg','source','partner','stage','payout','note']);
+     if(!o.name.trim()&&!o.phone.trim()&&!o.tg.trim())return alert('Укажите имя, телефон или Telegram'),false;
+     if(id)Object.assign(l,o);else S.leads.unshift({id:uid(),...o});return true});
+}
+
+/* ---------- партнёры ---------- */
+function partners(){
+  return `<div class="card"><div class="row"><b style="flex:1">Банки / МФО / офферы</b><button class="btn" onclick="editPartner()">+ Партнёр</button></div>
+  <div class="tw"><table><tr><th>Название</th><th>Ставка</th><th>Условия</th><th>Лидов</th><th>Одобрено</th><th>Выплачено</th><th></th></tr>
+  ${S.partners.map(p=>{const L=S.leads.filter(l=>l.partner===p.id),ap=L.filter(l=>['Одобрено','Выплачено'].includes(l.stage)).length;
+   return `<tr><td><b>${esc(p.name)}</b></td><td>${rub(p.rate)}</td><td class="mut">${esc(p.terms)}</td><td>${L.length}</td>
+   <td>${L.length?Math.round(ap/L.length*100)+'%':'—'}</td><td>${rub(L.reduce((a,l)=>a+payoutOf(l),0))}</td>
+   <td style="white-space:nowrap"><button class="btn g" onclick="editPartner('${p.id}')">✎</button> <button class="btn g" onclick="del('partners','${p.id}')">🗑</button></td></tr>`}).join('')||'<tr><td colspan="7" class="mut">Нет партнёров</td></tr>'}
+  </table></div></div>`;
+}
+function editPartner(id){
+  const p=id?by(S.partners,id):{name:'',rate:'',terms:''};
+  modal(id?'Партнёр':'Новый партнёр',`<div class="f"><div><label>Название</label><input id="a_name" value="${esc(p.name)}"></div>
+   <div><label>Ставка за лид, ₽</label><input id="a_rate" type="number" value="${esc(p.rate)}"></div>
+   <div class="w"><label>Условия / гео / холд / ссылка</label><textarea id="a_terms">${esc(p.terms)}</textarea></div></div>`,
+   ()=>{const o=pick(['name','rate','terms']);if(!o.name.trim())return alert('Укажите название'),false;
+     if(id)Object.assign(p,o);else S.partners.push({id:uid(),...o});return true});
+}
+
+/* ---------- источники ---------- */
+function sources(){
+  return `<div class="card"><div class="row"><b style="flex:1">Каналы трафика и расходы</b><button class="btn" onclick="editSource()">+ Источник</button></div>
+  <div class="tw"><table><tr><th>Название</th><th>Расход</th><th>Лидов</th><th>CPL</th><th>Доход</th><th>ROI</th><th></th></tr>
+  ${S.sources.map(s=>{const L=S.leads.filter(l=>l.source===s.id),inc=L.reduce((a,l)=>a+payoutOf(l),0),sp=+s.spend||0;
+   return `<tr><td><b>${esc(s.name)}</b><br><span class="mut">${esc(s.note)}</span></td><td>${rub(sp)}</td><td>${L.length}</td>
+   <td>${L.length?rub(sp/L.length):'—'}</td><td>${rub(inc)}</td><td class="${inc-sp>=0?'ok':'bad'}">${sp?Math.round((inc-sp)/sp*100)+'%':'—'}</td>
+   <td style="white-space:nowrap"><button class="btn g" onclick="editSource('${s.id}')">✎</button> <button class="btn g" onclick="del('sources','${s.id}')">🗑</button></td></tr>`}).join('')||'<tr><td colspan="7" class="mut">Нет источников</td></tr>'}
+  </table></div></div>`;
+}
+function editSource(id){
+  const s=id?by(S.sources,id):{name:'',spend:'',note:''};
+  modal(id?'Источник':'Новый источник',`<div class="f"><div><label>Название (канал, пост, кампания)</label><input id="a_name" value="${esc(s.name)}"></div>
+   <div><label>Потрачено, ₽</label><input id="a_spend" type="number" value="${esc(s.spend)}"></div>
+   <div class="w"><label>Заметка</label><textarea id="a_note">${esc(s.note)}</textarea></div></div>`,
+   ()=>{const o=pick(['name','spend','note']);if(!o.name.trim())return alert('Укажите название'),false;
+     if(id)Object.assign(s,o);else S.sources.push({id:uid(),...o});return true});
+}
+
+/* ---------- скрипты ---------- */
+function tpl(){
+  return `<div class="card"><div class="row"><b style="flex:1">Шаблоны сообщений</b><button class="btn" onclick="editTpl()">+ Шаблон</button></div>
+  ${S.tpl.map(t=>`<div class="card" style="background:var(--bg)"><div class="row" style="margin:0"><b style="flex:1">${esc(t.name)}</b>
+   <button class="btn g" onclick="copyT('${t.id}')">Копировать</button><button class="btn g" onclick="editTpl('${t.id}')">✎</button><button class="btn g" onclick="del('tpl','${t.id}')">🗑</button></div>
+   <div class="mut" style="white-space:pre-wrap;margin-top:6px">${esc(t.text)}</div></div>`).join('')||'<div class="mut">Нет шаблонов</div>'}
+  <div class="mut">Переменные вроде {имя} подставляйте вручную при отправке.</div></div>`;
+}
+function editTpl(id){
+  const t=id?by(S.tpl,id):{name:'',text:''};
+  modal('Шаблон',`<div class="f"><div class="w"><label>Название</label><input id="a_name" value="${esc(t.name)}"></div>
+   <div class="w"><label>Текст</label><textarea id="a_text" style="min-height:140px">${esc(t.text)}</textarea></div></div>`,
+   ()=>{const o=pick(['name','text']);if(!o.name.trim())return alert('Укажите название'),false;
+     if(id)Object.assign(t,o);else S.tpl.push({id:uid(),...o});return true});
+}
+function copyT(id){navigator.clipboard.writeText(by(S.tpl,id).text).then(()=>alert('Скопировано'),()=>alert('Не удалось скопировать'))}
+
+/* ---------- общее ---------- */
+function pick(keys){const o={};keys.forEach(k=>o[k]=document.getElementById('a_'+k).value);return o}
+function modal(title,body,onSave){
+  const m=document.getElementById('m');
+  m.innerHTML=`<div class="modal"><div><h3 style="margin-top:0">${title}</h3>${body}
+   <div class="row" style="margin:14px 0 0;justify-content:flex-end"><button class="btn g" id="mc">Отмена</button><button class="btn" id="ms">Сохранить</button></div></div></div>`;
+  document.getElementById('mc').onclick=()=>m.innerHTML='';
+  document.getElementById('ms').onclick=()=>{if(onSave()!==false){save();m.innerHTML='';render()}};
+}
+function del(kind,id){
+  if(!confirm('Удалить запись?'))return;
+  S[kind]=S[kind].filter(x=>x.id!==id);
+  if(kind==='sources')S.leads.forEach(l=>{if(l.source===id)l.source=''});
+  if(kind==='partners')S.leads.forEach(l=>{if(l.partner===id)l.partner=''});
+  save();render();
+}
+function exp(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));
+  a.download='crm-backup-'+today()+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+document.getElementById('imp').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.leads))throw 0;
+    if(!confirm('Заменить текущие данные импортированными?'))return;
+    S={leads:d.leads,partners:d.partners||[],sources:d.sources||[],tpl:d.tpl||[]};save();render()}catch(x){alert('Неверный файл')}};
+  r.readAsText(f);e.target.value='';
+};
+render();
+</script>
+</body>
+</html>
