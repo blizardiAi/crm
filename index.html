@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -54,8 +54,8 @@ label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
 <script>
 const KEY='leadcrm.v1';
 const STAGES=['Новый','В работе','Заявка','Одобрено','Выплачено','Отказ'];
-const TABS=[['dash','Дашборд'],['leads','Лиды'],['partners','Партнёры'],['sources','Источники'],['tpl','Скрипты']];
-let S=load(),tab='dash',F={q:'',st:'',src:'',ptn:''};
+const TABS=[['dash','Дашборд'],['leads','Лиды'],['partners','Партнёры'],['sources','Источники'],['tpl','Скрипты'],['links','Ссылки'],['auto','Автоматизация']];
+let S=load();S.links=S.links||[];let tab='dash',F={q:'',st:'',src:'',ptn:''};
 
 function load(){
   try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.leads)return d}catch(e){}
@@ -72,7 +72,7 @@ function nav(){
   document.getElementById('nav').innerHTML=TABS.map(([k,n])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
 }
 function go(t){tab=t;render()}
-function render(){nav();document.getElementById('app').innerHTML=({dash,leads,partners,sources,tpl})[tab]()}
+function render(){nav();document.getElementById('app').innerHTML=({dash,leads,partners,sources,tpl,links,auto})[tab]()}
 
 /* ---------- расчёты ---------- */
 function payoutOf(l){const p=by(S.partners,l.partner);return l.stage==='Выплачено'?(+l.payout||+(p&&p.rate)||0):0}
@@ -113,13 +113,13 @@ function leads(){
       <td>${esc(s?s.name:'—')}</td><td>${esc(p?p.name:'—')}</td>
       <td><select onchange="setStage('${l.id}',this.value)">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></td>
       <td>${rub(payoutOf(l)||pending(l))}</td>
-      <td style="white-space:nowrap"><button class="btn g" onclick="editLead('${l.id}')">✎</button> <button class="btn g" onclick="del('leads','${l.id}')">🗑</button></td></tr>`}).join('')||'<tr><td colspan="7" class="mut">Пока пусто. Добавьте первого лида.</td></tr>'}
+      <td style="white-space:nowrap"><button class="btn g" title="Написать" onclick="msg('${l.id}')">💬</button> <button class="btn g" title="Ссылка для лида" onclick="leadLink('${l.id}')">🔗</button> <button class="btn g" onclick="editLead('${l.id}')">✎</button> <button class="btn g" onclick="del('leads','${l.id}')">🗑</button></td></tr>`}).join('')||'<tr><td colspan="7" class="mut">Пока пусто. Добавьте первого лида.</td></tr>'}
     </table></div></div>`;
 }
 function keep(el){const p=el.selectionStart;render();const n=document.querySelector('main input');if(n){n.focus();n.setSelectionRange(p,p)}}
 function setStage(id,v){by(S.leads,id).stage=v;save();render()}
 function editLead(id){
-  const l=id?by(S.leads,id):{name:'',phone:'',tg:'',source:'',partner:'',stage:'Новый',payout:'',note:'',date:today()};
+  const l=id?by(S.leads,id):{name:'',phone:'',tg:'',source:'',partner:'',stage:'Новый',payout:'',note:'',date:today(),next:''};
   const opt=(arr,v)=>`<option value="">—</option>`+arr.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${esc(x.name)}</option>`).join('');
   modal(id?'Лид':'Новый лид',`<div class="f">
    <div><label>Имя</label><input id="a_name" value="${esc(l.name)}"></div>
@@ -130,8 +130,8 @@ function editLead(id){
    <div><label>Партнёр</label><select id="a_partner">${opt(S.partners,l.partner)}</select></div>
    <div><label>Статус</label><select id="a_stage">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></div>
    <div><label>Выплата (пусто = ставка партнёра)</label><input id="a_payout" type="number" value="${esc(l.payout)}"></div>
-   <div class="w"><label>Заметка</label><textarea id="a_note">${esc(l.note)}</textarea></div></div>`,
-   ()=>{const o=pick(['name','date','phone','tg','source','partner','stage','payout','note']);
+   <div class="w"><label>Связаться снова (дата)</label><input id="a_next" type="date" value="${esc(l.next)}"></div><div class="w"><label>Заметка</label><textarea id="a_note">${esc(l.note)}</textarea></div></div>`,
+   ()=>{const o=pick(['name','date','phone','tg','source','partner','stage','payout','note','next']);
      if(!o.name.trim()&&!o.phone.trim()&&!o.tg.trim())return alert('Укажите имя, телефон или Telegram'),false;
      if(id)Object.assign(l,o);else S.leads.unshift({id:uid(),...o});return true});
 }
@@ -147,11 +147,11 @@ function partners(){
   </table></div></div>`;
 }
 function editPartner(id){
-  const p=id?by(S.partners,id):{name:'',rate:'',terms:''};
+  const p=id?by(S.partners,id):{name:'',rate:'',terms:'',url:''};
   modal(id?'Партнёр':'Новый партнёр',`<div class="f"><div><label>Название</label><input id="a_name" value="${esc(p.name)}"></div>
    <div><label>Ставка за лид, ₽</label><input id="a_rate" type="number" value="${esc(p.rate)}"></div>
-   <div class="w"><label>Условия / гео / холд / ссылка</label><textarea id="a_terms">${esc(p.terms)}</textarea></div></div>`,
-   ()=>{const o=pick(['name','rate','terms']);if(!o.name.trim())return alert('Укажите название'),false;
+   <div class="w"><label>Ссылка оффера (партнёрская)</label><input id="a_url" value="${esc(p.url)}"></div><div class="w"><label>Условия / гео / холд</label><textarea id="a_terms">${esc(p.terms)}</textarea></div></div>`,
+   ()=>{const o=pick(['name','rate','terms','url']);if(!o.name.trim())return alert('Укажите название'),false;
      if(id)Object.assign(p,o);else S.partners.push({id:uid(),...o});return true});
 }
 
@@ -217,10 +217,96 @@ document.getElementById('imp').onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.leads))throw 0;
     if(!confirm('Заменить текущие данные импортированными?'))return;
-    S={leads:d.leads,partners:d.partners||[],sources:d.sources||[],tpl:d.tpl||[]};save();render()}catch(x){alert('Неверный файл')}};
+    S={leads:d.leads,partners:d.partners||[],sources:d.sources||[],tpl:d.tpl||[],links:d.links||[]};save();render()}catch(x){alert('Неверный файл')}};
   r.readAsText(f);e.target.value='';
 };
+
+/* ---------- ссылки ---------- */
+const slug=s=>String(s||'').toLowerCase().replace(/[^a-z0-9а-я]+/gi,'_').replace(/^_|_$/g,'');
+function buildUrl(base,o){
+  if(!base)return '';
+  try{const u=new URL(base);Object.entries(o).forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});return u.toString()}
+  catch(e){return ''}
+}
+function links(){
+  const opt=(arr)=>`<option value="">—</option>`+arr.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  return `<div class="card"><b>Генератор трекинг-ссылок</b>
+   <div class="mut" style="margin:4px 0 10px">Берёт ссылку оффера из карточки партнёра и добавляет метки utm_* и sub1/sub2, чтобы в кабинете партнёра видеть, откуда пришёл лид.</div>
+   <div class="f">
+    <div><label>Партнёр</label><select id="g_p" onchange="gen()">${opt(S.partners)}</select></div>
+    <div><label>Источник</label><select id="g_s" onchange="gen()">${opt(S.sources)}</select></div>
+    <div><label>Кампания / пост</label><input id="g_c" oninput="gen()" placeholder="например post_12"></div>
+    <div><label>sub2 (свободная метка)</label><input id="g_x" oninput="gen()"></div>
+    <div class="w"><label>Готовая ссылка</label><textarea id="g_out" readonly></textarea></div></div>
+   <div class="row" style="margin-top:10px"><button class="btn" onclick="copyOut()">Копировать</button><button class="btn g" onclick="saveLink()">Сохранить в список</button></div>
+   <div class="mut">Если у партнёра не заполнена «Ссылка оффера» — добавьте её во вкладке «Партнёры».</div></div>
+  <div class="card"><b>Сохранённые ссылки</b><div class="tw"><table><tr><th>Название</th><th>Ссылка</th><th></th></tr>
+  ${S.links.map(k=>`<tr><td>${esc(k.name)}</td><td style="word-break:break-all" class="mut">${esc(k.url)}</td>
+   <td style="white-space:nowrap"><button class="btn g" onclick="navigator.clipboard.writeText(by(S.links,'${k.id}').url)">Копировать</button> <button class="btn g" onclick="del('links','${k.id}')">🗑</button></td></tr>`).join('')||'<tr><td colspan="3" class="mut">Пусто</td></tr>'}</table></div></div>`;
+}
+function genVal(){
+  const p=by(S.partners,g('g_p')),s=by(S.sources,g('g_s'));
+  return{name:[p&&p.name,s&&s.name,g('g_c')].filter(Boolean).join(' / '),
+    url:buildUrl(p&&p.url,{utm_source:slug(s&&s.name),utm_medium:'cpa',utm_campaign:slug(g('g_c')),sub1:slug(s&&s.name),sub2:g('g_x')})};
+}
+function g(id){const e=document.getElementById(id);return e?e.value:''}
+function gen(){const v=genVal(),o=document.getElementById('g_out');o.value=v.url||(g('g_p')?'У партнёра не указана корректная ссылка (нужен https://…)':'')}
+function copyOut(){const v=genVal().url;if(!v)return alert('Сначала выберите партнёра со ссылкой');navigator.clipboard.writeText(v).then(()=>alert('Скопировано'),()=>alert('Не удалось скопировать'))}
+function saveLink(){const v=genVal();if(!v.url)return alert('Нечего сохранять');S.links.push({id:uid(),...v});save();render()}
+function leadLink(id){
+  const l=by(S.leads,id),p=by(S.partners,l.partner),s=by(S.sources,l.source);
+  if(!p||!p.url)return alert('У партнёра этого лида не указана ссылка оффера');
+  const u=buildUrl(p.url,{utm_source:slug(s&&s.name),utm_medium:'cpa',sub1:slug(s&&s.name),sub2:l.id});
+  if(!u)return alert('Ссылка оффера некорректна (нужен https://…)');
+  navigator.clipboard.writeText(u).then(()=>alert('Ссылка для лида скопирована'),()=>prompt('Скопируйте:',u));
+}
+
+/* ---------- автоматизация ---------- */
+function fill(t,l){const p=by(S.partners,l.partner);return t.replace(/\{имя\}/g,l.name||'').replace(/\{продукт\}/g,p?p.name:'')}
+function msg(id){
+  const l=by(S.leads,id);
+  if(!S.tpl.length)return alert('Сначала создайте шаблон во вкладке «Скрипты»');
+  modal('Написать: '+esc(l.name),`<div class="f"><div class="w"><label>Шаблон</label><select id="a_t" onchange="document.getElementById('a_txt').value=fill(by(S.tpl,this.value).text,by(S.leads,'${id}'))">
+    ${S.tpl.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>
+    <div class="w"><label>Текст (подставляются {имя} и {продукт})</label><textarea id="a_txt" style="min-height:120px">${esc(fill(S.tpl[0].text,l))}</textarea></div></div>
+    <div class="row" style="margin-top:10px">
+     <button class="btn g" onclick="sendTo('${id}','tg')">Открыть в Telegram</button>
+     <button class="btn g" onclick="sendTo('${id}','wa')">Открыть в WhatsApp</button></div>
+    <div class="mut">Сообщение откроется в приложении, отправляете вы сами.</div>`,
+    ()=>true);
+}
+function sendTo(id,k){
+  const l=by(S.leads,id),t=encodeURIComponent(g('a_txt')),ph=(l.phone||'').replace(/\D/g,''),tg=(l.tg||'').replace(/^@|^https?:\/\/t\.me\//,'');
+  let u=''; if(k==='tg')u=tg?`https://t.me/${tg}?text=${t}`:ph?`https://t.me/+${ph}`:''; if(k==='wa')u=ph?`https://wa.me/${ph}?text=${t}`:'';
+  if(!u)return alert('У лида нет подходящего контакта');
+  window.open(u,'_blank','noopener');
+  if(l.stage==='Новый'){l.stage='В работе';save();render()}
+}
+function auto(){
+  const td=today(),due=S.leads.filter(l=>l.next&&l.next<=td&&!['Выплачено','Отказ'].includes(l.stage));
+  const stale=S.leads.filter(l=>l.stage==='Новый'&&(Date.now()-new Date(l.date))/864e5>=3);
+  const row=l=>`<tr><td><b>${esc(l.name)}</b><br><span class="mut">${esc(l.phone)} ${esc(l.tg)}</span></td><td>${esc(l.next||l.date)}</td>
+    <td style="white-space:nowrap"><button class="btn g" onclick="msg('${l.id}')">💬 Написать</button> <button class="btn g" onclick="postpone('${l.id}')">+1 день</button></td></tr>`;
+  return `<div class="card"><b>Сегодня связаться (${due.length})</b><div class="tw"><table>${due.map(row).join('')||'<tr><td class="mut">Никого. В карточке лида поставьте «Связаться снова».</td></tr>'}</table></div></div>
+  <div class="card"><b>Зависли в «Новый» 3+ дня (${stale.length})</b><div class="tw"><table>${stale.map(row).join('')||'<tr><td class="mut">Таких нет</td></tr>'}</table></div></div>
+  <div class="card"><b>Массовый импорт лидов</b>
+   <div class="mut" style="margin:4px 0 8px">Вставьте строки: <code>имя; телефон; @telegram</code> — по одному лиду в строке. Источник и партнёр выбираются ниже и ставятся всем.</div>
+   <div class="f"><div><label>Источник</label><select id="b_s"><option value="">—</option>${S.sources.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div>
+   <div><label>Партнёр</label><select id="b_p"><option value="">—</option>${S.partners.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div>
+   <div class="w"><textarea id="b_t" style="min-height:120px" placeholder="Иван; +79001234567; @ivan"></textarea></div></div>
+   <div class="row" style="margin-top:10px"><button class="btn" onclick="bulk()">Импортировать</button></div></div>
+  <div class="card"><b>Что работает автоматически</b><div class="mut">• Выплата лида берётся из ставки партнёра.<br>• Расходы, CPL, ROI и конверсия пересчитываются сами.<br>• При отправке сообщения лид из «Новый» переходит в «В работе».<br>• Напоминания и «зависшие» лиды собираются здесь.</div></div>`;
+}
+function postpone(id){const l=by(S.leads,id),d=new Date();d.setDate(d.getDate()+1);l.next=d.toISOString().slice(0,10);save();render()}
+function bulk(){
+  const lines=g('b_t').split('\n').map(x=>x.trim()).filter(Boolean);if(!lines.length)return;
+  lines.forEach(x=>{const [name,phone,tg]=x.split(/[;\t,]/).map(v=>(v||'').trim());
+    S.leads.unshift({id:uid(),name:name||'',phone:phone||'',tg:tg||'',source:g('b_s'),partner:g('b_p'),stage:'Новый',payout:'',note:'',date:today(),next:''})});
+  save();alert('Добавлено: '+lines.length);go('leads');
+}
 render();
 </script>
 </body>
 </html>
+
+
