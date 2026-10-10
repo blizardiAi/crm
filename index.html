@@ -38,7 +38,7 @@ textarea{min-height:70px;resize:vertical}
 label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
 .mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}
 @media(max-width:560px){.f{grid-template-columns:1fr}}
-</style>
+.hint{font-size:12px;color:var(--mut);margin-top:3px}.req{color:var(--bad);font-style:normal}.note{background:var(--bg);border:1px dashed var(--bd);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--mut)}.step{display:flex;gap:10px;margin-top:8px}.step b{background:var(--ac);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;font-size:12px}</style>
 </head>
 <body>
 <header>
@@ -72,7 +72,7 @@ function nav(){
   document.getElementById('nav').innerHTML=TABS.map(([k,n])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${n}</button>`).join('');
 }
 function go(t){tab=t;render()}
-function render(){nav();document.getElementById('app').innerHTML=({dash,leads,partners,sources,tpl,links,auto})[tab]()}
+function render(){norm();nav();document.getElementById('app').innerHTML=({dash,leads,partners,sources,tpl,links,auto})[tab]()}
 
 /* ---------- расчёты ---------- */
 function payoutOf(l){const p=by(S.partners,l.partner);return l.stage==='Выплачено'?(+l.payout||+(p&&p.rate)||0):0}
@@ -90,6 +90,11 @@ function dash(){
   <div class="card" style="margin-top:14px"><b>Воронка</b>${STAGES.map(s=>`
     <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="width:90px">${s}</span>
     <div style="flex:1"><div class="bar" style="width:${cnt(s)/max*100}%;min-width:3px"></div></div><b>${cnt(s)}</b></div>`).join('')}</div>
+  <div class="card"><b>С чего начать</b>
+    <div class="step"><b>1</b><span>Во вкладке <u>Партнёры</u> добавьте банк или МФО: название, ставку и партнёрскую ссылку.</span></div>
+    <div class="step"><b>2</b><span>Во вкладке <u>Источники</u> добавьте блогера или канал, где даёте рекламу, и сколько за неё заплатили.</span></div>
+    <div class="step"><b>3</b><span>Во вкладке <u>Ссылки</u> получите ссылку для поста. Люди, которые оставят заявку по ней, сами появятся в <u>Лидах</u>.</span></div>
+    <div class="step"><b>4</b><span>Ведите лидов по статусам. Выплаты, расходы и окупаемость считаются сами.</span></div></div>
   <div class="card"><b>Данные хранятся только в этом браузере.</b>
     <div class="mut">Делайте «Экспорт» время от времени — это ваш бэкап. Через «Импорт» можно перенести данные на другое устройство.</div></div>`;
 }
@@ -122,15 +127,15 @@ function editLead(id){
   const l=id?by(S.leads,id):{name:'',phone:'',tg:'',source:'',partner:'',stage:'Новый',payout:'',note:'',date:today(),next:''};
   const opt=(arr,v)=>`<option value="">—</option>`+arr.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${esc(x.name)}</option>`).join('');
   modal(id?'Лид':'Новый лид',`<div class="f">
-   <div><label>Имя</label><input id="a_name" value="${esc(l.name)}"></div>
-   <div><label>Дата</label><input id="a_date" type="date" value="${esc(l.date)}"></div>
-   <div><label>Телефон</label><input id="a_phone" value="${esc(l.phone)}"></div>
-   <div><label>Telegram</label><input id="a_tg" value="${esc(l.tg)}"></div>
-   <div><label>Источник</label><select id="a_source">${opt(S.sources,l.source)}</select></div>
-   <div><label>Партнёр</label><select id="a_partner">${opt(S.partners,l.partner)}</select></div>
-   <div><label>Статус</label><select id="a_stage">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></div>
-   <div><label>Выплата (пусто = ставка партнёра)</label><input id="a_payout" type="number" value="${esc(l.payout)}"></div>
-   <div class="w"><label>Связаться снова (дата)</label><input id="a_next" type="date" value="${esc(l.next)}"></div><div class="w"><label>Заметка</label><textarea id="a_note">${esc(l.note)}</textarea></div></div>`,
+   <div class="w note">Поля с <i class="req">*</i> нужны обязательно. Остальные можно заполнить позже.</div><div><label>Имя <i class="req">*</i></label><input id="a_name" placeholder="Например: Иван" value="${esc(l.name)}"><div class="hint">Как зовут человека. Достаточно указать имя, телефон или Telegram.</div></div>
+   <div><label>Дата получения</label><input id="a_date" type="date" value="${esc(l.date)}"><div class="hint">Когда лид пришёл. По умолчанию сегодня.</div></div>
+   <div><label>Телефон</label><input id="a_phone" placeholder="+7 900 123-45-67" value="${esc(l.phone)}"><div class="hint">Нужен для кнопки WhatsApp.</div></div>
+   <div><label>Telegram</label><input id="a_tg" placeholder="@username" value="${esc(l.tg)}"><div class="hint">Ник через @. Нужен для кнопки «Написать».</div></div>
+   <div><label>Источник трафика</label><select id="a_source">${opt(S.sources,l.source)}</select><div class="hint">Откуда пришёл человек: блогер, канал, пост. Список пополняется во вкладке «Источники».</div></div>
+   <div><label>Партнёр (банк / МФО)</label><select id="a_partner">${opt(S.partners,l.partner)}</select><div class="hint">Куда оформляете человека. Список пополняется во вкладке «Партнёры».</div></div>
+   <div><label>Статус</label><div class="hint" style="margin:0 0 3px">Этап сделки. Можно менять и прямо в таблице.</div><select id="a_stage">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></div>
+   <div><label>Выплата, ₽</label><input id="a_payout" type="number" placeholder="оставьте пустым" value="${esc(l.payout)}"><div class="hint">Если пусто — берётся ставка партнёра. Впишите, только если по этому лиду сумма другая.</div></div>
+   <div class="w"><label>Напомнить связаться</label><input id="a_next" type="date" value="${esc(l.next)}"><div class="hint">В этот день лид появится на вкладке «Автоматизация» в списке «Сегодня связаться».</div></div><div class="w"><label>Заметка</label><textarea id="a_note" placeholder="Например: просил перезвонить после 18:00">${esc(l.note)}</textarea></div></div>`,
    ()=>{const o=pick(['name','date','phone','tg','source','partner','stage','payout','note','next']);
      if(!o.name.trim()&&!o.phone.trim()&&!o.tg.trim())return alert('Укажите имя, телефон или Telegram'),false;
      if(id)Object.assign(l,o);else S.leads.unshift({id:uid(),...o});return true});
@@ -148,9 +153,9 @@ function partners(){
 }
 function editPartner(id){
   const p=id?by(S.partners,id):{name:'',rate:'',terms:'',url:''};
-  modal(id?'Партнёр':'Новый партнёр',`<div class="f"><div><label>Название</label><input id="a_name" value="${esc(p.name)}"></div>
-   <div><label>Ставка за лид, ₽</label><input id="a_rate" type="number" value="${esc(p.rate)}"></div>
-   <div class="w"><label>Ссылка оффера (партнёрская)</label><input id="a_url" value="${esc(p.url)}"></div><div class="w"><label>Условия / гео / холд</label><textarea id="a_terms">${esc(p.terms)}</textarea></div></div>`,
+  modal(id?'Партнёр':'Новый партнёр',`<div class="f"><div class="w note">Партнёр — это банк, МФО или оффер, за который вам платят. Поля с <i class="req">*</i> обязательны.</div><div><label>Название <i class="req">*</i></label><input id="a_name" placeholder="Например: Банк Альфа, карта" value="${esc(p.name)}"><div class="hint">Как вы называете этот оффер.</div></div>
+   <div><label>Ставка за лид, ₽</label><input id="a_rate" type="number" placeholder="1500" value="${esc(p.rate)}"><div class="hint">Сколько партнёр платит за одобренного клиента. От неё считается ваш доход.</div></div>
+   <div class="w"><label>Ссылка оффера (партнёрская)</label><input id="a_url" placeholder="https://..." value="${esc(p.url)}"><div class="hint">Партнёрская ссылка из личного кабинета партнёрки. На её основе делаются ссылки для рекламы.</div></div><div class="w"><label>Условия / гео / холд</label><textarea id="a_terms" placeholder="Гео, возраст, холд выплат, запрещённые источники">${esc(p.terms)}</textarea></div></div>`,
    ()=>{const o=pick(['name','rate','terms','url']);if(!o.name.trim())return alert('Укажите название'),false;
      if(id)Object.assign(p,o);else S.partners.push({id:uid(),...o});return true});
 }
@@ -158,17 +163,17 @@ function editPartner(id){
 /* ---------- источники ---------- */
 function sources(){
   return `<div class="card"><div class="row"><b style="flex:1">Каналы трафика и расходы</b><button class="btn" onclick="editSource()">+ Источник</button></div>
-  <div class="tw"><table><tr><th>Название</th><th>Расход</th><th>Лидов</th><th>CPL</th><th>Доход</th><th>ROI</th><th></th></tr>
+  <div class="tw"><table><tr><th>Название</th><th>Расход</th><th>Клики</th><th>Лидов</th><th>CPL</th><th>Доход</th><th>ROI</th><th></th></tr>
   ${S.sources.map(s=>{const L=S.leads.filter(l=>l.source===s.id),inc=L.reduce((a,l)=>a+payoutOf(l),0),sp=+s.spend||0;
-   return `<tr><td><b>${esc(s.name)}</b><br><span class="mut">${esc(s.note)}</span></td><td>${rub(sp)}</td><td>${L.length}</td>
+   return `<tr><td><b>${esc(s.name)}</b><br><span class="mut">${esc(s.note)}</span></td><td>${rub(sp)}</td><td>${S.clicks[s.id]||0}</td><td>${L.length}</td>
    <td>${L.length?rub(sp/L.length):'—'}</td><td>${rub(inc)}</td><td class="${inc-sp>=0?'ok':'bad'}">${sp?Math.round((inc-sp)/sp*100)+'%':'—'}</td>
    <td style="white-space:nowrap"><button class="btn g" onclick="editSource('${s.id}')">✎</button> <button class="btn g" onclick="del('sources','${s.id}')">🗑</button></td></tr>`}).join('')||'<tr><td colspan="7" class="mut">Нет источников</td></tr>'}
   </table></div></div>`;
 }
 function editSource(id){
   const s=id?by(S.sources,id):{name:'',spend:'',note:''};
-  modal(id?'Источник':'Новый источник',`<div class="f"><div><label>Название (канал, пост, кампания)</label><input id="a_name" value="${esc(s.name)}"></div>
-   <div><label>Потрачено, ₽</label><input id="a_spend" type="number" value="${esc(s.spend)}"></div>
+  modal(id?'Источник':'Новый источник',`<div class="f"><div class="w note">Источник — это место, откуда вы берёте людей: блогер, Telegram-канал, пост. По нему считаются расходы и окупаемость.</div><div><label>Название <i class="req">*</i></label><input id="a_name" placeholder="Например: Канал «Заработок», пост 12.10" value="${esc(s.name)}"><div class="hint">Любое понятное вам имя.</div></div>
+   <div><label>Потрачено, ₽</label><input id="a_spend" type="number" placeholder="0" value="${esc(s.spend)}"><div class="hint">Сколько заплатили за рекламу здесь. Если пока 0 — оставьте пусто.</div></div>
    <div class="w"><label>Заметка</label><textarea id="a_note">${esc(s.note)}</textarea></div></div>`,
    ()=>{const o=pick(['name','spend','note']);if(!o.name.trim())return alert('Укажите название'),false;
      if(id)Object.assign(s,o);else S.sources.push({id:uid(),...o});return true});
@@ -184,7 +189,7 @@ function tpl(){
 }
 function editTpl(id){
   const t=id?by(S.tpl,id):{name:'',text:''};
-  modal('Шаблон',`<div class="f"><div class="w"><label>Название</label><input id="a_name" value="${esc(t.name)}"></div>
+  modal('Шаблон',`<div class="f"><div class="w note">В тексте можно писать {имя} и {продукт} — при отправке сообщения они заменятся данными лида.</div><div class="w"><label>Название <i class="req">*</i></label><input id="a_name" placeholder="Например: Первое сообщение" value="${esc(t.name)}"></div>
    <div class="w"><label>Текст</label><textarea id="a_text" style="min-height:140px">${esc(t.text)}</textarea></div></div>`,
    ()=>{const o=pick(['name','text']);if(!o.name.trim())return alert('Укажите название'),false;
      if(id)Object.assign(t,o);else S.tpl.push({id:uid(),...o});return true});
@@ -228,7 +233,7 @@ function buildUrl(base,o){
   try{const u=new URL(base);Object.entries(o).forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});return u.toString()}
   catch(e){return ''}
 }
-function links(){
+function links0(){
   const opt=(arr)=>`<option value="">—</option>`+arr.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
   return `<div class="card"><b>Генератор трекинг-ссылок</b>
    <div class="mut" style="margin:4px 0 10px">Берёт ссылку оффера из карточки партнёра и добавляет метки utm_* и sub1/sub2, чтобы в кабинете партнёра видеть, откуда пришёл лид.</div>
@@ -304,9 +309,64 @@ function bulk(){
     S.leads.unshift({id:uid(),name:name||'',phone:phone||'',tg:tg||'',source:g('b_s'),partner:g('b_p'),stage:'Новый',payout:'',note:'',date:today(),next:''})});
   save();alert('Добавлено: '+lines.length);go('leads');
 }
+/* ---------- приём лидов с рекламы ---------- */
+function norm(){S.links=S.links||[];S.cfg=S.cfg||{url:'',key:''};S.seen=S.seen||[];S.clicks=S.clicks||{}}
+function links(){return landingCard()+links0()}
+function landingCard(){
+  norm();
+  const opt=arr=>`<option value="">—</option>`+arr.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  return `<div class="card"><b>Ссылка для рекламы (лид приходит в CRM)</b>
+   <div class="mut" style="margin:4px 0 10px">Эту ссылку даёте блогеру или ставите в пост. Человек оставляет контакт на странице go.html, а вы забираете заявку кнопкой «Синхронизировать». Сначала подключите приёмник (инструкция в файле АПС-инструкция.txt).</div>
+   <div class="f">
+    <div class="w"><label>Адрес приёмника (Google Apps Script, заканчивается на /exec)</label><input id="c_url" value="${esc(S.cfg.url)}"></div>
+    <div class="w"><label>Секретный ключ (тот же, что в скрипте)</label><input id="c_key" value="${esc(S.cfg.key)}"></div></div>
+   <div class="row" style="margin-top:10px"><button class="btn" onclick="saveCfg()">Сохранить</button><button class="btn g" onclick="sync(true)">Синхронизировать</button></div>
+   <hr style="border:0;border-top:1px solid var(--bd);margin:14px 0">
+   <div class="f">
+    <div><label>Партнёр</label><select id="l_p" onchange="genL()">${opt(S.partners)}</select></div>
+    <div><label>Источник (блогер / канал)</label><select id="l_s" onchange="genL()">${opt(S.sources)}</select></div>
+    <div class="w"><label>Заголовок на странице (опишите предложение честно и точно)</label><input id="l_h" oninput="genL()" placeholder="Оставьте контакт — расскажем условия"></div>
+    <div class="w"><label><input type="checkbox" id="l_r" style="width:auto" onchange="genL()"> После заявки показать кнопку перехода на ссылку оффера партнёра</label></div>
+    <div class="w"><label>Ссылка для поста</label><textarea id="l_out" readonly></textarea></div></div>
+   <div class="row" style="margin-top:10px"><button class="btn" onclick="copyL()">Копировать</button></div></div>`;
+}
+function saveCfg(){S.cfg={url:g('c_url').trim(),key:g('c_key').trim()};save();alert('Сохранено')}
+function landUrl(){
+  const p=by(S.partners,g('l_p')),s=by(S.sources,g('l_s'));
+  if(!S.cfg.url||!s)return '';
+  const u=new URL('go.html',location.href);
+  u.searchParams.set('a',S.cfg.url);u.searchParams.set('s',s.id);
+  if(p)u.searchParams.set('p',p.id);
+  if(g('l_h'))u.searchParams.set('h',g('l_h'));
+  if(g('l_r')&&document.getElementById('l_r').checked&&p&&p.url)u.searchParams.set('r',p.url);
+  return u.toString();
+}
+function genL(){document.getElementById('l_out').value=landUrl()||'Сохраните адрес приёмника и выберите источник'}
+function copyL(){const u=landUrl();if(!u)return alert('Сохраните адрес приёмника и выберите источник');navigator.clipboard.writeText(u).then(()=>alert('Скопировано'),()=>alert('Не удалось скопировать'))}
+async function sync(manual){
+  norm();if(!S.cfg.url||!S.cfg.key){if(manual)alert('Сначала укажите адрес приёмника и ключ');return}
+  try{
+    const r=await fetch(S.cfg.url+(S.cfg.url.includes('?')?'&':'?')+'key='+encodeURIComponent(S.cfg.key));
+    const d=await r.json();if(!d.ok)throw new Error(d.error||'ошибка');
+    const clicks={};let added=0;
+    d.rows.forEach(x=>{
+      if(x.type==='click'){clicks[x.source]=(clicks[x.source]||0)+1;return}
+      if(S.seen.includes(x.id))return;
+      S.seen.push(x.id);added++;
+      S.leads.unshift({id:uid(),name:x.name||'',phone:x.phone||'',tg:x.tg||'',source:by(S.sources,x.source)?x.source:'',
+        partner:by(S.partners,x.partner)?x.partner:'',stage:'Новый',payout:'',note:'с рекламной страницы',date:(x.date||today()).slice(0,10),next:''});
+    });
+    S.clicks=clicks;save();render();
+    if(manual)alert('Готово. Новых лидов: '+added);
+  }catch(e){if(manual)alert('Не удалось синхронизировать: '+e.message)}
+}
+setTimeout(()=>sync(false),500);
 render();
 </script>
 </body>
 </html>
+
+
+
 
 
