@@ -353,7 +353,7 @@ async function sync(manual){
       if(x.type==='click'){clicks[x.source]=(clicks[x.source]||0)+1;return}
       if(S.seen.includes(x.id))return;
       S.seen.push(x.id);added++;
-      S.leads.unshift({id:uid(),name:x.name||'',phone:x.phone||'',tg:x.tg||'',source:by(S.sources,x.source)?x.source:'',
+      S.leads.unshift({id:uid(),name:String(x.name||''),phone:String(x.phone||''),tg:String(x.tg||''),source:by(S.sources,x.source)?x.source:'',
         partner:by(S.partners,x.partner)?x.partner:'',stage:'Новый',payout:'',note:'с рекламной страницы',date:(x.date||today()).slice(0,10),next:''});
     });
     S.clicks=clicks;save();render();
@@ -365,6 +365,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
