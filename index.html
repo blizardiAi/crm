@@ -38,12 +38,18 @@ textarea{min-height:70px;resize:vertical}
 label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
 .mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}
 @media(max-width:560px){.f{grid-template-columns:1fr}}
-.hint{font-size:12px;color:var(--mut);margin-top:3px}.req{color:var(--bad);font-style:normal}.note{background:var(--bg);border:1px dashed var(--bd);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--mut)}.step{display:flex;gap:10px;margin-top:8px}.step b{background:var(--ac);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;font-size:12px}</style>
+.hint{font-size:12px;color:var(--mut);margin-top:3px}.req{color:var(--bad);font-style:normal}.note{background:var(--bg);border:1px dashed var(--bd);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--mut)}.step{display:flex;gap:10px;margin-top:8px}.step b{background:var(--ac);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;font-size:12px}.tip{display:inline-flex;width:16px;height:16px;border-radius:50%;background:var(--bd);color:var(--mut);font-size:11px;align-items:center;justify-content:center;margin-left:5px;cursor:help;position:relative;font-weight:600;font-style:normal}
+.tip:hover::after,.tip:focus::after{content:attr(data-t);position:absolute;left:0;top:130%;width:210px;background:var(--tx);color:var(--bg);padding:7px 9px;border-radius:8px;font-weight:400;font-size:12px;z-index:30;white-space:normal;text-align:left;line-height:1.35}
+.sec{font-weight:600;font-size:13px;margin-top:6px;padding-top:8px;border-top:1px solid var(--bd)}
+.empty{text-align:center;padding:26px 10px;color:var(--mut)}.empty b{display:block;color:var(--tx);font-size:16px;margin-bottom:6px}
+.tipbar{background:var(--bg);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--mut);margin-bottom:10px}
+</style>
 </head>
 <body>
 <header>
   <h1>📇 Лид-CRM</h1>
   <nav id="nav"></nav>
+  <button class="btn g" onclick="tour(0)">❓ Экскурс</button>
   <button class="btn g" onclick="exp()">Экспорт</button>
   <button class="btn g" onclick="document.getElementById('imp').click()">Импорт</button>
   <input type="file" id="imp" accept=".json" hidden>
@@ -84,9 +90,9 @@ function dash(){
   const cost=S.sources.reduce((a,s)=>a+(+s.spend||0),0);
   const cnt=st=>L.filter(l=>l.stage===st).length,max=Math.max(1,...STAGES.map(cnt));
   return `<div class="grid">
-    ${kpi('Лидов',L.length)}${kpi('Выплачено',rub(inc))}${kpi('Ожидает выплаты',rub(pen))}
-    ${kpi('Расходы',rub(cost))}${kpi('Прибыль',`<span class="${inc-cost>=0?'ok':'bad'}">${rub(inc-cost)}</span>`)}
-    ${kpi('ROI',cost?Math.round((inc-cost)/cost*100)+'%':'—')}</div>
+    ${kpi('Лидов',L.length)}${kpi('Выплачено',rub(inc),'Сумма по лидам со статусом «Выплачено» — деньги, которые вы уже получили.')}${kpi('Ожидает выплаты',rub(pen),'Лиды со статусом «Одобрено»: партнёр одобрил, но деньги ещё не пришли.')}
+    ${kpi('Расходы',rub(cost),'Всё, что вы потратили на рекламу. Суммы вводятся во вкладке «Источники».')}${kpi('Прибыль',`<span class="${inc-cost>=0?'ok':'bad'}">${rub(inc-cost)}</span>`)}
+    ${kpi('ROI',cost?Math.round((inc-cost)/cost*100)+'%':'—','Окупаемость: +100% значит, что вы заработали вдвое больше, чем потратили.')}</div>
   <div class="card" style="margin-top:14px"><b>Воронка</b>${STAGES.map(s=>`
     <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span style="width:90px">${s}</span>
     <div style="flex:1"><div class="bar" style="width:${cnt(s)/max*100}%;min-width:3px"></div></div><b>${cnt(s)}</b></div>`).join('')}</div>
@@ -98,7 +104,7 @@ function dash(){
   <div class="card"><b>Данные хранятся только в этом браузере.</b>
     <div class="mut">Делайте «Экспорт» время от времени — это ваш бэкап. Через «Импорт» можно перенести данные на другое устройство.</div></div>`;
 }
-const kpi=(l,v)=>`<div class="card kpi" style="margin:0"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+const kpi=(l,v,t)=>`<div class="card kpi" style="margin:0"><div class="v">${v}</div><div class="l">${l}${t?tip(t):""}</div></div>`;
 
 /* ---------- лиды ---------- */
 function leads(){
@@ -112,13 +118,13 @@ function leads(){
     <select onchange="F.src=this.value;render()"><option value="">Все источники</option>${opt(S.sources,F.src)}</select>
     <select onchange="F.ptn=this.value;render()"><option value="">Все партнёры</option>${opt(S.partners,F.ptn)}</select>
     <button class="btn" onclick="editLead()">+ Лид</button></div>
-    <div class="tw"><table><tr><th>Дата</th><th>Контакт</th><th>Источник</th><th>Партнёр</th><th>Статус</th><th>Выплата</th><th></th></tr>
+    <div class="tipbar">💡 Меняйте <b>статус</b> прямо в таблице списком. Кнопка <b>Написать</b> открывает чат с готовым сообщением, <b>Изменить</b> — карточку лида.</div><div class="tw"><table><tr><th>Дата</th><th>Контакт</th><th>Источник${tip("Откуда пришёл человек: блогер, канал, пост.")}</th><th>Партнёр${tip("Банк или МФО, на которого оформляете человека.")}</th><th>Статус${tip("Новый → В работе → Заявка → Одобрено → Выплачено. Отказ — если не получилось.")}</th><th>Выплата${tip("Сколько вы получите. Серым — ожидаемая сумма, ещё не выплаченная.")}</th><th>Действия</th></tr>
     ${L.map(l=>{const s=by(S.sources,l.source),p=by(S.partners,l.partner);return `<tr>
       <td>${esc(l.date)}</td><td><b>${esc(l.name)}</b><br><span class="mut">${esc(l.phone)} ${esc(l.tg)}</span>${l.note?`<br><span class="mut">${esc(l.note)}</span>`:''}</td>
       <td>${esc(s?s.name:'—')}</td><td>${esc(p?p.name:'—')}</td>
-      <td><select onchange="setStage('${l.id}',this.value)">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></td>
-      <td>${rub(payoutOf(l)||pending(l))}</td>
-      <td style="white-space:nowrap"><button class="btn g" title="Написать" onclick="msg('${l.id}')">💬</button> <button class="btn g" title="Ссылка для лида" onclick="leadLink('${l.id}')">🔗</button> <button class="btn g" onclick="editLead('${l.id}')">✎</button> <button class="btn g" onclick="del('leads','${l.id}')">🗑</button></td></tr>`}).join('')||'<tr><td colspan="7" class="mut">Пока пусто. Добавьте первого лида.</td></tr>'}
+      <td><select style="border-left:5px solid ${STAGE_COLOR[l.stage]}" onchange="setStage('${l.id}',this.value)">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td>${payoutOf(l)?`<b class="ok">${rub(payoutOf(l))}</b>`:pending(l)?`<span class="mut">${rub(pending(l))}</span>`:"—"}</td>
+      <td style="white-space:nowrap"><button class="btn" onclick="msg('${l.id}')">💬 Написать</button> <button class="btn g" onclick="editLead('${l.id}')">Изменить</button> <button class="btn g" title="Скопировать партнёрскую ссылку для этого лида" onclick="leadLink('${l.id}')">🔗</button> <button class="btn g" title="Удалить" onclick="del('leads','${l.id}')">🗑</button></td></tr>`}).join('')||'<tr><td colspan="7"><div class="empty"><b>Лидов пока нет</b>Лид — это человек, которого вы ведёте к оформлению. Они появятся сами, когда кто-то оставит заявку по вашей рекламной ссылке, или вы можете добавить их вручную.<br><br><button class="btn" onclick="editLead()">+ Добавить первого лида</button> <button class="btn g" onclick="go(&quot;links&quot;)">Получить ссылку для рекламы</button></div></td></tr>'}
     </table></div></div>`;
 }
 function keep(el){const p=el.selectionStart;render();const n=document.querySelector('main input');if(n){n.focus();n.setSelectionRange(p,p)}}
@@ -127,13 +133,13 @@ function editLead(id){
   const l=id?by(S.leads,id):{name:'',phone:'',tg:'',source:'',partner:'',stage:'Новый',payout:'',note:'',date:today(),next:''};
   const opt=(arr,v)=>`<option value="">—</option>`+arr.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${esc(x.name)}</option>`).join('');
   modal(id?'Лид':'Новый лид',`<div class="f">
-   <div class="w note">Поля с <i class="req">*</i> нужны обязательно. Остальные можно заполнить позже.</div><div><label>Имя <i class="req">*</i></label><input id="a_name" placeholder="Например: Иван" value="${esc(l.name)}"><div class="hint">Как зовут человека. Достаточно указать имя, телефон или Telegram.</div></div>
+   <div class="w note">Поля с <i class="req">*</i> нужны обязательно. Остальные можно заполнить позже.</div><div class="w sec">1. Кто этот человек</div><div><label>Имя <i class="req">*</i></label><input id="a_name" placeholder="Например: Иван" value="${esc(l.name)}"><div class="hint">Как зовут человека. Достаточно указать имя, телефон или Telegram.</div></div>
    <div><label>Дата получения</label><input id="a_date" type="date" value="${esc(l.date)}"><div class="hint">Когда лид пришёл. По умолчанию сегодня.</div></div>
    <div><label>Телефон</label><input id="a_phone" placeholder="+7 900 123-45-67" value="${esc(l.phone)}"><div class="hint">Нужен для кнопки WhatsApp.</div></div>
    <div><label>Telegram</label><input id="a_tg" placeholder="@username" value="${esc(l.tg)}"><div class="hint">Ник через @. Нужен для кнопки «Написать».</div></div>
-   <div><label>Источник трафика</label><select id="a_source">${opt(S.sources,l.source)}</select><div class="hint">Откуда пришёл человек: блогер, канал, пост. Список пополняется во вкладке «Источники».</div></div>
+   <div class="w sec">2. Откуда пришёл и куда оформляете</div><div><label>Источник трафика</label><select id="a_source">${opt(S.sources,l.source)}</select><div class="hint">Откуда пришёл человек: блогер, канал, пост. Список пополняется во вкладке «Источники».</div></div>
    <div><label>Партнёр (банк / МФО)</label><select id="a_partner">${opt(S.partners,l.partner)}</select><div class="hint">Куда оформляете человека. Список пополняется во вкладке «Партнёры».</div></div>
-   <div><label>Статус</label><div class="hint" style="margin:0 0 3px">Этап сделки. Можно менять и прямо в таблице.</div><select id="a_stage">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></div>
+   <div class="w sec">3. Что дальше</div><div><label>Статус</label><div class="hint" style="margin:0 0 3px">Этап сделки. Можно менять и прямо в таблице.</div><select id="a_stage">${STAGES.map(x=>`<option ${x===l.stage?'selected':''}>${x}</option>`).join('')}</select></div>
    <div><label>Выплата, ₽</label><input id="a_payout" type="number" placeholder="оставьте пустым" value="${esc(l.payout)}"><div class="hint">Если пусто — берётся ставка партнёра. Впишите, только если по этому лиду сумма другая.</div></div>
    <div class="w"><label>Напомнить связаться</label><input id="a_next" type="date" value="${esc(l.next)}"><div class="hint">В этот день лид появится на вкладке «Автоматизация» в списке «Сегодня связаться».</div></div><div class="w"><label>Заметка</label><textarea id="a_note" placeholder="Например: просил перезвонить после 18:00">${esc(l.note)}</textarea></div></div>`,
    ()=>{const o=pick(['name','date','phone','tg','source','partner','stage','payout','note','next']);
@@ -361,10 +367,37 @@ async function sync(manual){
   }catch(e){if(manual)alert('Не удалось синхронизировать: '+e.message)}
 }
 setTimeout(()=>sync(false),500);
+/* ---------- подсказки и экскурс ---------- */
+const STAGE_COLOR={'Новый':'#9ca3af','В работе':'#3b6cf6','Заявка':'#d97706','Одобрено':'#0891b2','Выплачено':'#16a34a','Отказ':'#dc2626'};
+function tip(t){return `<span class="tip" tabindex="0" data-t="${esc(t)}">?</span>`}
+const TOUR=[
+ ['dash','Добро пожаловать 👋','Это ваша личная CRM: здесь вы ведёте людей, которых приводите банкам и МФО, и видите, сколько на этом зарабатываете. Экскурсия займёт минуту.'],
+ ['partners','Шаг 1. Партнёры','Партнёр — это банк или МФО, который платит за клиента. Добавьте его: название, сколько платит за одного клиента и партнёрскую ссылку из его кабинета.'],
+ ['sources','Шаг 2. Источники','Источник — это место, где вы даёте рекламу: блогер, Telegram-канал, пост. Укажите, сколько на него потратили. Так вы поймёте, какая реклама окупается.'],
+ ['links','Шаг 3. Ссылки','Здесь создаётся ссылка для рекламы. Отдайте её блогеру или вставьте в пост. Человек оставит имя и контакт, а заявка придёт к вам. Один раз подключите приёмник заявок по инструкции.'],
+ ['leads','Шаг 4. Лиды','Здесь все люди, которые оставили заявку. Меняйте статус списком: Новый → В работе → Заявка → Одобрено → Выплачено. Кнопка «Написать» открывает чат с готовым сообщением.'],
+ ['auto','Шаг 5. Автоматизация','Тут напоминания: кому пора написать сегодня и кто завис без ответа. Также можно загрузить сразу много контактов списком.'],
+ ['dash','Не забывайте про бэкап','Данные хранятся в вашем браузере. Раз в несколько дней нажимайте «Экспорт» вверху: это резервная копия. Вернуться к экскурсии можно кнопкой «Экскурс».']
+];
+function tour(i){
+  const m=document.getElementById('m');
+  if(i>=TOUR.length){m.innerHTML='';try{localStorage.setItem('leadcrm.tour','1')}catch(e){}return}
+  const [tb,h,x]=TOUR[i];go(tb);
+  m.innerHTML=`<div class="modal" style="align-items:flex-end;pointer-events:none;background:#0003"><div style="pointer-events:auto">
+   <div class="mut">Шаг ${i+1} из ${TOUR.length}</div><h3 style="margin:4px 0 8px">${h}</h3><p style="margin:0 0 14px">${x}</p>
+   <div class="row" style="margin:0;justify-content:flex-end">
+    <button class="btn g" onclick="tour(${TOUR.length})">Пропустить</button>
+    ${i?`<button class="btn g" onclick="tour(${i-1})">Назад</button>`:''}
+    <button class="btn" onclick="tour(${i+1})">${i===TOUR.length-1?'Готово':'Далее'}</button></div></div></div>`;
+}
+try{if(!localStorage.getItem('leadcrm.tour')&&!S.leads.length&&!S.partners.length&&!S.sources.length)setTimeout(()=>tour(0),400)}catch(e){}
 render();
 </script>
 </body>
 </html>
+
+
+
 
 
 
